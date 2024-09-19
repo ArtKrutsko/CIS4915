@@ -1,6 +1,6 @@
 import pandas as pd
 
-format_data():
+def format_data():
   student_data = pd.read_csv("studentData.csv")
   grades = pd.read_csv("parsed_grades.csv")
   
