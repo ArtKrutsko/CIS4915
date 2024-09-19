@@ -40,4 +40,3 @@ def format():
   student_data['Semester'] = student_data['Semester'].astype(float)
   student_data['Semester'] = student_data['Semester'].round(0)
   student_data['Semester'] = student_data['Semester'].astype(str)
-  student_data.to_csv('new_table.csv')
