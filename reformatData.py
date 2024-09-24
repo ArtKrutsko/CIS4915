@@ -1,36 +1,39 @@
 import pandas as pd
+import numpy as np
 
-student_data = pd.read_csv("ML - Curricular Analytics - PIDM ONLY & Fixed Repeat IND.csv")
+student_data = pd.read_csv("ML - Curricular Analytics - PIDM ONLY & Fixed Repeat IND.csv", low_memory=False)
 grades = pd.read_csv("parsed_grades.csv")
-student_data.shape
 
-#Add Numeric GPA Column
-grade_mapping = dict(grades[['Code', 'Quality Points']].values)
-student_data = student_data.drop(student_data[(student_data.FINAL_GRADE == 'W') | 
-                                              (student_data.FINAL_GRADE == 'S') | 
-                                              (student_data.FINAL_GRADE == 'U') | 
-                                              (student_data.FINAL_GRADE.isna()) |
-                                              (student_data.FINAL_GRADE == '')].index)
-student_data['numeric_gpa'] = student_data.FINAL_GRADE.map(grade_mapping)
-student_data['numeric_gpa'] = student_data['numeric_gpa'].astype(float)
+# Merge the two dataframes to bring in the Quality Points and whether to count in GPA
+student_data = pd.merge(student_data, grades[['Code', 'Quality Points', 'Count in GPA?']], 
+              left_on='FINAL_GRADE', right_on='Code', how='left', suffixes=('', '_grades'))
+
+# Fill missing 'Quality Points' with 0.0 for unrecognized grades
+student_data['Quality Points'] = student_data['Quality Points'].fillna(0.0)
+student_data['Count_in_GPA'] = student_data['Count in GPA?'] == 'Y'
 
 #Final and Semester GPAs (Assuming all classes are equal credits)
-student_final_gpa = student_data.groupby('Pidm')['numeric_gpa'].mean().reset_index()
-student_semester_gpa = student_data.groupby(['Pidm', 'Term'])['numeric_gpa'].mean().reset_index()
+student_data['Valid_Grades'] = np.where(student_data['Count in GPA?'] == 'Y' , student_data['Quality Points'], np.nan)
+student_final_gpa = student_data.groupby('Pidm')['Valid_Grades'].mean().reset_index()
+student_data = student_data.merge(student_final_gpa, on='Pidm', how='left', suffixes=('', '_mean'))
+student_data.rename(columns={'Valid_Grades_mean':'Final GPA'}, inplace=True)
 
-#Student Classes per Semester (As an array of strings)
+student_semester_gpa = student_data.groupby(['Pidm', 'Term'])['Valid_Grades'].mean().reset_index()
+student_data = student_data.merge(student_semester_gpa, on=['Pidm', 'Term'], how='left', suffixes=('', '_mean'))
+student_data.rename(columns={'Valid_Grades_mean':'Semester GPA'}, inplace=True)
+
+#Student Classes & Points per Semester (As an array of strings)
 student_data['class'] = (student_data['SUBJ'] + student_data['CRSE_NUMB']).astype(str)
 semester_classes = student_data.groupby(['Pidm', 'Term']).agg({
     'FINAL_GRADE': list,
+    'Quality Points': list, 
     'class': list
 }).reset_index()
 
-#Map Final GPA onto main df and drop unecessary columns
-student_gpa_map = dict(student_final_gpa[['Pidm', 'numeric_gpa']].values)
-student_data['Final GPA'] = student_data.Pidm.map(student_gpa_map)
-student_data.drop(['CRN', 'SUBJ', 'CRSE_NUMB', 'REPEAT_IND', 'FINAL_GRADE', 'numeric_gpa', 'class'], axis=1, inplace=True)
+#Drop unecessary columns
+student_data.drop(['CRN', 'SUBJ', 'CRSE_NUMB', 'REPEAT_IND', 'FINAL_GRADE', 'class', 'Code', 'Count in GPA?', 'Count_in_GPA', 'Valid_Grades'], axis=1, inplace=True)
 
-#Eliminated repeated demographic data & Add semester gpa & classes
+#Remove repeated rows in the demographic columns
 student_data = student_data.groupby(['Pidm', 'Term']).agg({ 
     'Admit_Code': 'first', 
     'Admit_Level': 'first', 
@@ -56,14 +59,15 @@ student_data = student_data.groupby(['Pidm', 'Term']).agg({
     'SAT-ERW': 'first', 
     'SATM': 'first', 
     'SAT_TOTAL': 'first', 
-    'Final GPA': 'first'
+    'Final GPA': 'first',
+    'Semester GPA': 'first'
 }).reset_index()
 
-student_data['Semester GPA'] = student_data.merge(student_semester_gpa[['Pidm', 'Term', 'numeric_gpa']], on=['Pidm', 'Term'], how='left')['numeric_gpa']
-student_data = student_data.merge(semester_classes[['Pidm', 'Term', 'FINAL_GRADE', 'class']], on=['Pidm', 'Term'], how='left')
-student_data.rename(columns={'Final_GPA':'HS GPA', 'Term':'Semester','FINAL_GRADE':'Semester Grades', 'class':'Classes'}, inplace=True)
+#Add Semester grades and gpa points to df
+student_data = student_data.merge(semester_classes[['Pidm', 'Term', 'FINAL_GRADE', 'Quality Points', 'class']], on=['Pidm', 'Term'], how='left')
+student_data.rename(columns={'Final_GPA':'HS GPA', 'Term':'Semester','FINAL_GRADE':'Semester Grades', 'Quality Points':'Semester Points', 'class':'Classes'}, inplace=True)
 
-#Correct Datatypes and output to .csv
+#Correct datatypes and output to csv
 student_data = student_data.astype(str)
 student_data['Pidm'] = student_data['Pidm'].astype(int)
 student_data['Final GPA'] = student_data['Final GPA'].astype(float).round(2)
