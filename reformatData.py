@@ -1,9 +1,22 @@
 import pandas as pd
 import numpy as np
 
-
 student_data = pd.read_csv("ML - Curricular Analytics - PIDM ONLY & Fixed Repeat IND.csv", low_memory=False)
 grades = pd.read_csv("parsed_grades.csv")
+
+student_data = student_data.drop(columns=['Admit_Term', 'Admit_Major_Code'])
+student_data = student_data.dropna(subset=['Term', 'CRN', 'SUBJ', 'CRSE_NUMB', 'FINAL_GRADE'])
+
+#Save latest student major
+student_data['Term'] = student_data['Term'].astype(int)
+
+last_sem_idx = student_data.groupby('Pidm')['Term'].idxmax()
+latest_majors = student_data.loc[last_sem_idx, ['Pidm', 'Major_Desc']]
+majors_dict = latest_majors.set_index('Pidm')['Major_Desc'].to_dict()
+student_data['Lastest_Major'] = student_data['Pidm'].map(majors_dict)
+student_data = student_data.drop(columns=['Major_Desc'])
+student_data.drop_duplicates(subset=['Pidm', 'Term', 'CRN'], inplace=True)
+
 
 # Merge the two dataframes to bring in the Quality Points and whether to count in GPA
 student_data = pd.merge(student_data, grades[['Code', 'Quality Points', 'Count in GPA?']], 
@@ -23,24 +36,24 @@ student_semester_gpa = student_data.groupby(['Pidm', 'Term'])['Valid_Grades'].me
 student_data = student_data.merge(student_semester_gpa, on=['Pidm', 'Term'], how='left', suffixes=('', '_mean'))
 student_data.rename(columns={'Valid_Grades_mean':'Semester GPA'}, inplace=True)
 
+
 #Student Classes & Points per Semester (As an array of strings)
 student_data['class'] = (student_data['SUBJ'] + student_data['CRSE_NUMB']).astype(str)
 semester_classes = student_data.groupby(['Pidm', 'Term']).agg({
     'FINAL_GRADE': list,
     'Quality Points': list, 
-    'class': list
+    'class': list,
+    'CRN': list,
 }).reset_index()
 
 #Drop unecessary columns
-student_data.drop(['CRN', 'SUBJ', 'CRSE_NUMB', 'REPEAT_IND', 'FINAL_GRADE', 'class', 'Code', 'Count in GPA?', 'Count_in_GPA', 'Valid_Grades'], axis=1, inplace=True)
+student_data.drop(['SUBJ', 'REPEAT_IND', 'FINAL_GRADE', 'class', 'Code', 'Count in GPA?', 'Count_in_GPA', 'Valid_Grades'], axis=1, inplace=True)
 
 #Remove repeated rows in the demographic columns
 student_data = student_data.groupby(['Pidm', 'Term']).agg({ 
-    'Admit_Code': 'first', 
     'Admit_Level': 'first', 
-    'Admit_College': 'first', 
-    'Admit_Major_Code': 'first', 
-    'Major_Desc': 'first', 
+    'Admit_College': 'first',
+    'Lastest_Major': 'first',
     'Trump_Race': 'first', 
     'Trump_Race_Desc': 'first', 
     'MULTI': 'first', 
@@ -65,7 +78,7 @@ student_data = student_data.groupby(['Pidm', 'Term']).agg({
 }).reset_index()
 
 #Add Semester grades and gpa points to df
-student_data = student_data.merge(semester_classes[['Pidm', 'Term', 'FINAL_GRADE', 'Quality Points', 'class']], on=['Pidm', 'Term'], how='left')
+student_data = student_data.merge(semester_classes[['Pidm', 'Term', 'FINAL_GRADE', 'Quality Points', 'class', 'CRN']], on=['Pidm', 'Term'], how='left')
 student_data.rename(columns={'Final_GPA':'HS GPA', 'Term':'Semester','FINAL_GRADE':'Semester Grades', 'Quality Points':'Semester Points', 'class':'Classes'}, inplace=True)
 
 #Correct datatypes and output to csv
