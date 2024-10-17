@@ -81,6 +81,43 @@ student_data = student_data.groupby(['Pidm', 'Term']).agg({
 student_data = student_data.merge(semester_classes[['Pidm', 'Term', 'FINAL_GRADE', 'Quality Points', 'class', 'CRN']], on=['Pidm', 'Term'], how='left')
 student_data.rename(columns={'Final_GPA':'HS GPA', 'Term':'Semester','FINAL_GRADE':'Semester Grades', 'Quality Points':'Semester Points', 'class':'Classes'}, inplace=True)
 
+###Code from Varma to convert SATs
+# List of score columns
+score_columns = ['ACTE', 'ACTM', 'ACTR', 'ACTS', 'EACT', 'SAT-ERW', 'SATM', 'SAT_TOTAL', 'HS GPA']
+
+# Convert score columns to numeric
+for col in score_columns:
+    student_data[col] = pd.to_numeric(student_data[col], errors='coerce')
+
+# ACT to SAT conversion table
+act_to_sat_conversion = {
+    36: 1590, 35: 1540, 34: 1500, 33: 1460, 32: 1430, 31: 1400,
+    30: 1370, 29: 1340, 28: 1310, 27: 1280, 26: 1240, 25: 1210,
+    24: 1180, 23: 1140, 22: 1110, 21: 1080, 20: 1040, 19: 1010,
+    18: 970, 17: 930, 16: 890, 15: 850, 14: 800, 13: 760,
+    12: 710, 11: 670, 10: 630, 9: 590
+}
+
+# Convert EACT to SAT
+def convert_act_to_sat(eact_score):
+    if pd.isna(eact_score):
+        return np.nan
+    return act_to_sat_conversion.get(int(eact_score), np.nan)
+
+# Apply the conversion to EACT scores
+student_data['Converted_SAT'] = student_data['SAT_TOTAL']
+
+# Identify where SAT_TOTAL is missing but EACT is available
+mask = student_data['SAT_TOTAL'].isna() & student_data['EACT'].notna()
+
+# Apply conversion
+student_data.loc[mask, 'Converted_SAT'] = student_data.loc[mask, 'EACT'].apply(convert_act_to_sat)
+
+# Step 4: Handle Remaining Missing Values
+
+# Drop rows where Converted_SAT or Final_GPA is still NaN
+student_data = student_data.dropna(subset=['Converted_SAT', 'HS GPA'])
+
 #Correct datatypes and output to csv
 student_data = student_data.astype(str)
 student_data['Pidm'] = student_data['Pidm'].astype(int)
