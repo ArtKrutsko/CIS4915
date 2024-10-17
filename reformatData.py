@@ -1,3 +1,4 @@
+from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
 
@@ -124,4 +125,17 @@ student_data['Pidm'] = student_data['Pidm'].astype(int)
 student_data['Final GPA'] = student_data['Final GPA'].astype(float).round(2)
 student_data['Semester GPA'] = student_data['Semester GPA'].astype(float).round(2)
 student_data['Semester'] = student_data['Semester'].astype(float).astype(int).astype(str)
-student_data.to_csv("formatted_data.csv", index=False)
+
+#Split into train-dev-test sets by Pidm
+student_ids = student_data['Pidm'].unique()
+train, testing_data = train_test_split(student_ids, test_size=0.2, random_state=50)
+dev, test = train_test_split(testing_data, test_size=0.5, random_state=50)
+train_set = student_data[student_data['Pidm'].isin(train)]
+dev_set = student_data[student_data['Pidm'].isin(dev)]
+test_set = student_data[student_data['Pidm'].isin(test)]
+
+#Output to .csv
+student_data.to_csv("full_set.csv", index=False)
+train_set.to_csv("train_set.csv", index=False)
+dev_set.to_csv("dev_set.csv", index=False)
+test_set.to_csv("test_set.csv", index=False)
