@@ -1,17 +1,39 @@
+import ast
+import numpy as np
 import pandas as pd
 from itertools import chain
-import ast
+from xgboost import XGBClassifier
+from sklearn.utils import resample
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, classification_report, confusion_matrix, accuracy_score
 
-#####Example Usage#####
-# from formatAndSplit import get_data, prep_data
+pd.set_option('display.max_columns', None)
+
+
+
+###Example Usage###
+
+# from formatAndSplit import get_data, prep_data, undersample, findBestWeight
 # df = get_data()
 # X_train, X_dev, X_test, y_train, y_dev, y_test = prep_data(df, 'CHM2210', 10)
+# best_weight = findBestWeight(X_train, y_train, X_dev, y_dev)
+# X_resampled, y_resampled = undersample(X_train, y_train, best_weight)
+# xgb_classifier = XGBClassifier(
+#         objective='binary:logistic',
+#         seed=50,
+#         learning_rate=0.01,
+#         max_depth=9,
+#         n_estimators=100,
+#         subsample=0.8,
+#         colsample_bytree=0.8
+#     )
+#xgb_classifier.fit(X_resampled, y_resampled)
+#y_pred = xgb_classifier.predict(X_test)
+
 
 
 # Outputs the sf in a readable format for the prep_data function
 def get_data():
-    pd.set_option('display.max_columns', None)
     df = pd.read_csv("full_set.csv")
     df.shape
 
@@ -56,9 +78,7 @@ def prep_data(df, target_class, min_class_count):
     
     final_df = final_df[~final_df['Target_Grade'].isin(['WE', 'IF', 'W', 'WC'])]
     
-    display(df[df['Pidm'] ==  134328])
     final_df = final_df[final_df['Semester'] < final_df['Target_Semester']]
-    display(final_df[final_df['Pidm'] ==  134328])
     groupped_df = final_df.groupby('Pidm').agg({
         "HS GPA": 'first',
         'Converted_SAT': 'first',
@@ -129,31 +149,76 @@ def prep_data(df, target_class, min_class_count):
     dev_set['pass_fail'] = dev_set['Target_Grade'].apply(map_pass_fail)
     test_set['pass_fail'] = test_set['Target_Grade'].apply(map_pass_fail)
     
-    X = train_set.drop(columns=['Target_Grade', 'pass_fail'])
+    X_train = train_set.drop(columns=['Target_Grade', 'pass_fail'])
     X_dev = dev_set.drop(columns=['Target_Grade', 'pass_fail'])
     X_test = test_set.drop(columns=['Target_Grade', 'pass_fail'])
 
-    X = X.dropna()
+    X_train = X_train.dropna()
     X_dev = X_dev.dropna()
     X_test = X_test.dropna()
     
-    y = train_set.loc[X.index, 'pass_fail']
+    y_train = train_set.loc[X_train.index, 'pass_fail']
     y_dev = dev_set.loc[X_dev.index, 'pass_fail']
     y_test = test_set.loc[test_set.index, 'pass_fail']
 
-    from sklearn.utils import resample
-    counts = train_set['pass_fail'].value_counts()
+    return X_train, X_dev, X_test, y_train, y_dev, y_test
 
-    pfcounts = train_set['pass_fail'].value_counts()
-    sample_count = min(counts.get(0, 0), counts.get(1, 1))
+def undersample(X_train, y_train, minority_weight=1):
+    counts = y_train.value_counts()
+    fail_count = counts.get(0, 0)
+    pass_count = counts.get(1, 1)
     
-    pass_class = X[y == 1]
-    fail_class = X[y == 0]
+    # Calculate sample count based on the minority weight
+    sample_count = int(minority_weight * fail_count + (1 - minority_weight) * pass_count)
     
+    # Separate the classes
+    pass_class = X_train[y_train == 1]
+    fail_class = X_train[y_train == 0]
+    
+    # Resample classes
     pass_sample = resample(pass_class, replace=False, n_samples=sample_count, random_state=50)
-    fail_sample = resample(fail_class, replace=False, n_samples=sample_count, random_state=50)
+    fail_sample = resample(fail_class, replace=False, n_samples=fail_count, random_state=50)
     
-    X_undersampled = pd.concat([pass_sample, fail_sample])
-    y_undersampled = pd.concat([y[pass_sample.index], y[fail_sample.index]])
+    # Combine resampled data
+    X_balanced = pd.concat([pass_sample, fail_sample])
+    y_balanced = pd.concat([y_train[pass_sample.index], y_train[fail_sample.index]])
+    
+    return X_balanced, y_balanced
 
-    return X_undersampled, X_dev, X_test, y_undersampled, y_dev, y_test
+# Finds the best weight for undersampling
+def findBestWeight(X_train, y_train, X_dev, y_dev):
+    best_f1 = 0
+    best_weight = None
+    best_report = None
+
+    for weight in np.arange(0.1, 1.05, 0.05):
+        X_resampled, y_resampled = undersample(X_train, y_train, weight)
+
+        xgb_classifier = XGBClassifier(
+            objective='binary:logistic',
+            seed=50,
+            learning_rate=0.01,
+            max_depth=9,
+            n_estimators=100,
+            subsample=0.8,
+            colsample_bytree=0.8
+        )
+        xgb_classifier.fit(X_resampled, y_resampled)
+
+        y_pred = xgb_classifier.predict(X_dev)
+
+        f1 = f1_score(y_dev, y_pred, pos_label=0)
+        # print(f"Weight: {weight:.2f}, F1 for class 0: {f1:.4f}")
+        
+        if f1 > best_f1:
+            best_f1 = f1
+            best_weight = weight
+            accuracy = accuracy_score(y_dev, y_pred)
+            best_report = classification_report(y_dev, y_pred)
+
+    # print("\nBest Results:")
+    # print(f"Best Weight: {best_weight:.2f}")
+    # print(f"Best F1 for class 0: {best_f1:.4f}")
+    # print(f"Accuracy: {accuracy:.4f}")
+    # print(f"Classification Report:\n{best_report}")
+    return best_weight
