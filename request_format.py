@@ -262,7 +262,7 @@ if __name__ == "__main__":
     feature_names = X_train.columns.tolist()
     
     # Path to the model
-    model_path = "./models/MLP_model_for_CHM2210.h5"
+    model_path = f"./models/MLP_model_for_{request['option']}.h5"
     
     # Process the request
     result = process_advisor_request(request, model_path, feature_names)
