@@ -12,8 +12,6 @@ pd.set_option('display.max_columns', None)
 
 
 ###Example Usage###
-
-# from formatAndSplit import get_data, prep_data, undersample, findBestWeight
 # df = get_data()
 # X_train, X_dev, X_test, y_train, y_dev, y_test = prep_data(df, 'CHM2210', 10)
 # best_weight = findBestWeight(X_train, y_train, X_dev, y_dev)
@@ -186,13 +184,15 @@ def undersample(X_train, y_train, minority_weight=1):
     return X_balanced, y_balanced
 
 # Finds the best weight for undersampling
-def findBestWeight(X_train, y_train, X_dev, y_dev):
+def findBestWeight(X_train, y_train, step):
     best_f1 = 0
     best_weight = None
     best_report = None
 
-    for weight in np.arange(0.1, 1.05, 0.05):
-        X_resampled, y_resampled = undersample(X_train, y_train, weight)
+    xt, xd, yt, yd = train_test_split(X_train, y_train, test_size=0.7, random_state=50)
+
+    for weight in np.arange(step, (1 + step), step):
+        X_resampled, y_resampled = undersample(xt, yt, weight)
 
         xgb_classifier = XGBClassifier(
             objective='binary:logistic',
@@ -205,16 +205,16 @@ def findBestWeight(X_train, y_train, X_dev, y_dev):
         )
         xgb_classifier.fit(X_resampled, y_resampled)
 
-        y_pred = xgb_classifier.predict(X_dev)
+        y_pred = xgb_classifier.predict(xd)
 
-        f1 = f1_score(y_dev, y_pred, pos_label=0)
-        # print(f"Weight: {weight:.2f}, F1 for class 0: {f1:.4f}")
+        f1 = f1_score(yd, y_pred, pos_label=0)
+        print(f"Weight: {weight:.2f}, F1 for class 0: {f1:.4f}")
         
         if f1 > best_f1:
             best_f1 = f1
             best_weight = weight
-            accuracy = accuracy_score(y_dev, y_pred)
-            best_report = classification_report(y_dev, y_pred)
+            accuracy = accuracy_score(yd, y_pred)
+            best_report = classification_report(yd, y_pred)
 
     # print("\nBest Results:")
     # print(f"Best Weight: {best_weight:.2f}")
