@@ -1,0 +1,191 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+}
+#input-container, #output-container {
+    background: #fff;
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+}
+#data-table {
+    width: 100%;
+    margin: 10px 0;
+    border-collapse: collapse;
+}
+#data-table th, #data-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+}
+#data-table input {
+    width: 90%;
+    padding: 5px;
+}
+#predict-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+select {
+    width: 50%;
+    padding: 10px;
+    margin: 10px 0 5px 0;
+    font-size: 16px;
+}
+
+#dropdown-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 5px 0;
+}
+
+#custom-option-container {
+    width: 100%; /* Ensures it stays in the center */
+    display: flex;
+    justify-content: center; /* Centers the input inside */
+    margin-top: 10px; /* Add spacing between the dropdown and input */
+}
+
+#custom-option {
+    padding: 8px;
+    font-size: 16px;
+    width: 50%; /* Adjust width as needed */
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+#score-input-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Align labels and inputs at the top */
+    margin: 10px 0; /* Add spacing between dropdown and table */
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 48%; /* Adjust width for side-by-side layout */
+}
+
+.input-group label {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 5px; /* Space between label and input */
+    text-align: center;
+}
+
+.score-input {
+    padding: 8px;
+    font-size: 16px;
+    width: 100%; /* Ensure input fits inside the container */
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+#output-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 800px;
+    background: #fff;
+    overflow: hidden; /* Prevent content overflow */
+}
+
+.output-item {
+    margin: 10px 0;
+    text-align: center; /* Center-align text and images */
+}
+
+.output-image {
+    max-width: 100%; /* Ensure the image doesn't exceed the container's width */
+    max-width: 700px; /* Set a maximum height for large images */
+    height: auto; /* Maintain aspect ratio */
+    border-radius: 8px; /* Optional: add rounded corners */
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); /* Optional: add subtle shadow */
+    object-fit: contain; /* Ensure the image fits inside the boundaries */
+}
+
+
+#toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    margin-right: 10px; /* Space between toggle and label */
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #4caf50;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+#toggle-label {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
