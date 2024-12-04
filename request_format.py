@@ -15,7 +15,7 @@ import os
 import sys
 
 
-def process_advisor_request(request, model_path, feature_names, X_train):
+def process_advisor_request(request, model_path, feature_names, X_train, mode):
     """
     Process the advisor request, create an input vector, and return predictions.
     
@@ -61,13 +61,20 @@ def process_advisor_request(request, model_path, feature_names, X_train):
     prediction = model.predict(X_new)[0]
     
     print("prediction result", prediction)
-    
-    class_converting = {
+        # Path to the model, change it to your model
+    if mode == 'grade':
+        class_converting = {
         0: 'A+/A/A-/S',
         1: 'B+/B/B-',
         2: 'C+/C/C-',
         3: 'Fail'
-    }
+        }
+    else:
+        class_converting = {
+        0: 'FAIL',
+        1: 'PASS'
+        }
+    
     
     # Get Feature Importances
     feature_importances = model.feature_importances_
@@ -140,7 +147,7 @@ def process_request(request):
     
     # Path to the model, change it to your model
     if request['predictType'] == 'grade':
-        model_path = cwd + f"/UI/models/multiclass_for_{request['option']}.h5"
+        model_path = f"./models/multiclass_for_{request['option']}.h5"
     else:
         # I changed the path
         model_path = f"./models/passfail_for_{request['option']}.h5"
@@ -148,7 +155,7 @@ def process_request(request):
     
     result = ""
     if os.path.exists(model_path):
-        result = process_advisor_request(request, model_path, feature_names, X_train)
+        result = process_advisor_request(request, model_path, feature_names, X_train, request['predictType'])
     else:
         print(model_path)
         print("Error with accesing model")
