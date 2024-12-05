@@ -10,6 +10,41 @@ document.addEventListener("DOMContentLoaded", () => {
     const predictionToggle = document.getElementById("prediction-toggle");
     const toggleLabel = document.getElementById("toggle-label");
 
+    optionSelect.addEventListener("change", () => {
+        if (optionSelect.value === "Other") {
+            customOptionInput.style.display = "block";
+        } else {
+            customOptionInput.style.display = "none";
+            customOptionInput.value = ""; // Clear the input box if it's hidden
+        }
+    });
+
+    // Add new row when the last row is filled and remove empty rows if any
+    tableBody.addEventListener("input", () => {
+        const rows = tableBody.querySelectorAll("tr");
+        const lastRowInputs = rows[rows.length - 1].querySelectorAll("input");
+
+        // Check if all inputs in the last row are filled
+        if ([...lastRowInputs].every(input => input.value.trim() !== "")) {
+            const newRow = document.createElement("tr");
+            newRow.innerHTML = `
+                <td><input type="text" placeholder="Enter Class"></td>
+                <td><input type="text" placeholder="Enter Grade"></td>
+            `;
+            tableBody.appendChild(newRow);
+        }
+
+        // Remove extra empty rows, keeping only one empty row at the end
+        for (let i = rows.length - 2; i >= 0; i--) {
+            const inputs = rows[i].querySelectorAll("input");
+            if ([...inputs].every(input => input.value.trim() === "")) {
+                rows[i].remove();
+            } else {
+                break; // Stop removing rows once a non-empty row is found
+            }
+        }
+    });
+
     // Toggle label text change
     predictionToggle.addEventListener("change", () => {
         toggleLabel.textContent = predictionToggle.checked ? "Predict Grade" : "Predict Pass/Fail";
