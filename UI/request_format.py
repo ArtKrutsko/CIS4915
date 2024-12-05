@@ -48,11 +48,8 @@ def process_advisor_request(request, model_path, feature_names, X_train, mode):
 
     # # Add SAT/ACT scores if provided
     # sat_score = request.get('SAT', -1)  # Default to -1 if not provided
-    # act_score = request.get('ACT', -1)  # Default to -1 if not provided
     # if "SAT" in feature_names:
     #     input_vector[feature_names.index("SAT")] = sat_score
-    # if "ACT" in feature_names:
-    #     input_vector[feature_names.index("ACT")] = act_score
 
     # Load the saved model
     model = joblib.load(model_path, mmap_mode=None)
@@ -99,7 +96,7 @@ def process_advisor_request(request, model_path, feature_names, X_train, mode):
     output = {
         "output": [
             {"type": "text", "content": f"Predicted grade for {target_class} is: {class_converting[prediction]}"},
-            {"type": "text", "content": f"Top 20 Features by Importance:\n{importance_df.head(20)}"},
+            # {"type": "text", "content": f"Top 20 Features by Importance:\n{importance_df.head(20)}"}, need to format this first
             {"type": "image", "content": f"{feature_importance_path}"}
         ]
     }
@@ -119,7 +116,7 @@ def get_data():
     return df
 
 
-def preprocess_and_split_data(df, target_class, min_class_count):
+def preprocess_and_split_data(target_class, min_class_count):
 
     
     # read the column name 
@@ -133,10 +130,10 @@ def preprocess_and_split_data(df, target_class, min_class_count):
 
 # Example usage
 def process_request(request):
-    df = get_data()
+    # df = get_data()
 
     # Call the preprocessing function to get datasets
-    X_train = preprocess_and_split_data(df, request['option'], 20)
+    X_train = preprocess_and_split_data(request['option'], 20)
     # Feature names (from training data)
     feature_names = X_train
     
