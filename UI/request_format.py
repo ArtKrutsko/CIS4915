@@ -6,12 +6,16 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 from itertools import chain
 import matplotlib.pyplot as plt
+
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
+
 import seaborn as sns
 import os
 import sys
 
 
-def process_advisor_request(request, model_path, feature_names, X_train):
+def process_advisor_request(request, model_path, feature_names, X_train, mode):
     """
     Process the advisor request, create an input vector, and return predictions.
     
@@ -28,48 +32,60 @@ def process_advisor_request(request, model_path, feature_names, X_train):
     target_class = request['option']
     
     # Initialize the feature vector with default values (-1 for missing classes)
-    input_vector = [-1] * len(feature_names)
+    input_row = {col: -1 for col in feature_names}
+
     
     # Populate the feature vector with grades from the request
     for item in class_data:
         class_name = item['class']
         grade = float(item['grade'])
         if class_name in feature_names:
-            index = feature_names.index(class_name)
-            input_vector[index] = grade
+            input_row[class_name] = int(grade)
 
-    # Add SAT/ACT scores if provided
-    sat_score = request.get('SAT', -1)  # Default to -1 if not provided
-    act_score = request.get('ACT', -1)  # Default to -1 if not provided
-    if "SAT" in feature_names:
-        input_vector[feature_names.index("SAT")] = sat_score
-    if "ACT" in feature_names:
-        input_vector[feature_names.index("ACT")] = act_score
+    # new df for prediction
+    X_new = pd.DataFrame([input_row])
+
+
+    # # Add SAT/ACT scores if provided
+    # sat_score = request.get('SAT', -1)  # Default to -1 if not provided
+    # act_score = request.get('ACT', -1)  # Default to -1 if not provided
+    # if "SAT" in feature_names:
+    #     input_vector[feature_names.index("SAT")] = sat_score
+    # if "ACT" in feature_names:
+    #     input_vector[feature_names.index("ACT")] = act_score
 
     # Load the saved model
-    model = joblib.load(model_path)
+    model = joblib.load(model_path, mmap_mode=None)
     
     # Predict using the model
-    input_array = np.array(input_vector).reshape(1, -1)  # Reshape for prediction
-    prediction = model.predict(input_array)[0]
+    prediction = model.predict(X_new)[0]
     
-    class_converting = {
+    print("prediction result", prediction)
+        # Path to the model, change it to your model
+    if mode == 'grade':
+        class_converting = {
         0: 'A+/A/A-/S',
         1: 'B+/B/B-',
         2: 'C+/C/C-',
         3: 'Fail'
-    }
+        }
+    else:
+        class_converting = {
+        0: 'FAIL',
+        1: 'PASS'
+        }
+    
     
     # Get Feature Importances
     feature_importances = model.feature_importances_
     importance_df = pd.DataFrame({
-        "Feature": X_train.columns,
+        "Feature": X_train,
         "Importance": feature_importances
     }).sort_values(by="Importance", ascending=False)
 
     # Plot and save feature importances
     cwd = os.getcwd()
-    feature_importance_path = cwd + f"/UI/images/feature_importance_{target_class}.png"
+    feature_importance_path = f"./images/feature_importance_{target_class}.png"
     plt.figure(figsize=(10, 8))
     sns.barplot(x="Importance", y="Feature", data=importance_df.head(20))
     plt.title(f"Top 20 Feature Importances for {target_class}")
@@ -104,130 +120,25 @@ def get_data():
 
 
 def preprocess_and_split_data(df, target_class, min_class_count):
-    # Filter for students who took the target class
-    pidms_with_target_class = df[df['Classes'].apply(lambda x: target_class in x)]['Pidm'].unique()
-    df = df[df['Pidm'].isin(pidms_with_target_class)]
-    df = df[['Pidm', 'Semester', 'HS GPA', 'Converted_SAT', 'Semester Points', 'Semester Grades', 'CRN', 'Classes']]
 
-    # Find the first semester when the target class was taken
-    def find_first_semester(student_df):
-        target_row = student_df[student_df['Classes'].apply(lambda x: target_class in x)]
-        if not target_row.empty:
-            return target_row['Semester'].min()
-        return None
+    
+    # read the column name 
+    columns_file_path = f"./column_names/passfail_for_{target_class}.json"
+    with open(columns_file_path, 'r') as f:
+        X_train = json.load(f)  # Load column names from JSON
 
-    first_semester = df.groupby('Pidm').apply(find_first_semester).rename('Target_Semester')
-    df = df.merge(first_semester, on='Pidm')
-
-    # Filter all semesters before the target class was taken
-    filtered_df = df[df['Semester'] <= df['Target_Semester']]
-
-    # Extract grades and points for the target class
-    def find_class_grades(student_df):
-        for _, row in student_df.iterrows():
-            if target_class in row['Classes']:
-                index = row['Classes'].index(target_class)
-                return row['Semester Points'][index], row['Semester Grades'][index]
-        return None, None
-
-    class_grades = filtered_df.groupby('Pidm').apply(find_class_grades).apply(pd.Series)
-    class_grades.columns = ['Target_Points', 'Target_Grade']
-    filtered_df = filtered_df.merge(class_grades, on='Pidm')
-
-    # Remove rows with invalid grades
-    filtered_df = filtered_df[~filtered_df['Target_Grade'].isin(['WE', 'IF', 'W', 'WC'])]
-    filtered_df = filtered_df[filtered_df['Semester'] < filtered_df['Target_Semester']]
-
-    # Aggregate data by student
-    groupped_df = filtered_df.groupby('Pidm').agg({
-        "HS GPA": 'first',
-        'Converted_SAT': 'first',
-        'Semester Grades': lambda x: sum(x, []),
-        'Semester Points': lambda x: sum(x, []),
-        'Classes': lambda x: sum(x, []),
-        'CRN': lambda x: sum(x, []),
-        'Target_Grade': 'first',
-        'Target_Points': 'first',
-    }).reset_index()
-
-    # Create one-hot encoding for all classes
-    all_classes = sorted(set(chain.from_iterable(groupped_df['Classes'])))
-
-    def create_one_hot(classes, points, all_classes):
-        one_hot_vector = [-1] * len(all_classes)
-        for class_name, point in zip(classes, points):
-            if class_name in all_classes:
-                one_hot_vector[all_classes.index(class_name)] = point
-        return one_hot_vector
-
-    groupped_df['One_Hot_Classes'] = groupped_df.apply(
-        lambda row: create_one_hot(row['Classes'], row['Semester Points'], all_classes), axis=1
-    )
-
-    one_hot_df = pd.DataFrame(groupped_df['One_Hot_Classes'].tolist(), columns=all_classes, index=groupped_df['Pidm'])
-
-    # Split into train, dev, and test sets
-    train, testing_data = train_test_split(one_hot_df, test_size=0.2, random_state=50)
-    dev, test = train_test_split(testing_data, test_size=0.5, random_state=50)
-
-    train_set = one_hot_df[one_hot_df.index.isin(train.index)]
-    dev_set = one_hot_df[one_hot_df.index.isin(dev.index)]
-    test_set = one_hot_df[one_hot_df.index.isin(test.index)]
-
-    # Remove features with fewer than min_class_count observations
-    columns_to_remove = []
-    for column in train_set.columns:
-        value_counts = train_set[column].value_counts()
-        max_count = value_counts.max()
-        non_max_count = value_counts.sum() - max_count
-        if non_max_count <= min_class_count:
-            columns_to_remove.append(column)
-
-    train_set = train_set.drop(columns=columns_to_remove)
-    dev_set = dev_set.drop(columns=columns_to_remove)
-    test_set = test_set.drop(columns=columns_to_remove)
-
-    # Integrate additional features
-    train_set = train_set.join(groupped_df.set_index('Pidm')[['HS GPA', 'Converted_SAT', 'Target_Grade']])
-    dev_set = dev_set.join(groupped_df.set_index('Pidm')[['HS GPA', 'Converted_SAT', 'Target_Grade']])
-    test_set = test_set.join(groupped_df.set_index('Pidm')[['HS GPA', 'Converted_SAT', 'Target_Grade']])
-
-    # Map grades to class labels
-    grade_mapping = {
-    'A+': 0, 'A': 0, 'A-': 0, 'S': 0,  # Class 0: A
-    'B+': 1, 'B': 1, 'B-': 1,  # Class 1: B
-    'C+': 2, 'C': 2, 'C-': 2,  # Class 2: C
-    'D+': 3, 'D': 3, 'D-': 3, 'F': 3, 'U': 3  # Class 3: Fail
-    }
-
-    train_set['Target_Class'] = train_set['Target_Grade'].map(grade_mapping)
-    dev_set['Target_Class'] = dev_set['Target_Grade'].map(grade_mapping)
-    test_set['Target_Class'] = test_set['Target_Grade'].map(grade_mapping)
-
-    # Drop rows with missing target classes
-    train_set.dropna(subset=['Target_Class'], inplace=True)
-    dev_set.dropna(subset=['Target_Class'], inplace=True)
-    test_set.dropna(subset=['Target_Class'], inplace=True)
-
-    # Separate features and targets
-    X_train = train_set.drop(columns=['Target_Grade', 'Target_Class'])
-    X_dev = dev_set.drop(columns=['Target_Grade', 'Target_Class'])
-    X_test = test_set.drop(columns=['Target_Grade', 'Target_Class'])
-    y_train = train_set['Target_Class'].astype(int)
-    y_dev = dev_set['Target_Class'].astype(int)
-    y_test = test_set['Target_Class'].astype(int)
-
+    
     # Return processed data
-    return X_train, y_train, X_dev, y_dev, X_test, y_test
+    return X_train
 
 # Example usage
 def process_request(request):
     df = get_data()
 
     # Call the preprocessing function to get datasets
-    X_train, y_train, X_dev, y_dev, X_test, y_test = preprocess_and_split_data(df, request['option'], 20)
+    X_train = preprocess_and_split_data(df, request['option'], 20)
     # Feature names (from training data)
-    feature_names = X_train.columns.tolist()
+    feature_names = X_train
     
     # add the current working directory to Python path
     cwd = os.getcwd()
@@ -236,14 +147,15 @@ def process_request(request):
     
     # Path to the model, change it to your model
     if request['predictType'] == 'grade':
-        model_path = cwd + f"/UI/models/multiclass_for_{request['option']}.h5"
+        model_path = f"./models/multiclass_for_{request['option']}.h5"
     else:
-        model_path = cwd + f"/UI/models/passfail_for_{request['option']}.h5"
+        # I changed the path
+        model_path = f"./models/passfail_for_{request['option']}.h5"
     
     
     result = ""
     if os.path.exists(model_path):
-        result = process_advisor_request(request, model_path, feature_names, X_train)
+        result = process_advisor_request(request, model_path, feature_names, X_train, request['predictType'])
     else:
         print(model_path)
         print("Error with accesing model")
