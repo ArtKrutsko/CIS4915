@@ -82,7 +82,7 @@ def process_advisor_request(request, model_path, feature_names, X_train, mode):
 
     # Plot and save feature importances
     cwd = os.getcwd()
-    feature_importance_path = f"./images/feature_importance_{target_class}.png"
+    feature_importance_path = f"UI/images/feature_importance_{target_class}.png"
     plt.figure(figsize=(10, 8))
     sns.barplot(x="Importance", y="Feature", data=importance_df.head(20))
     plt.title(f"Top 20 Feature Importances for {target_class}")
@@ -97,7 +97,7 @@ def process_advisor_request(request, model_path, feature_names, X_train, mode):
         "output": [
             {"type": "text", "content": f"Predicted grade for {target_class} is: {class_converting[prediction]}"},
             # {"type": "text", "content": f"Top 20 Features by Importance:\n{importance_df.head(20)}"}, need to format this first
-            {"type": "image", "content": f"{feature_importance_path}"}
+            {"type": "image", "content": "../"+f"{feature_importance_path}"}
         ]
     }
     
@@ -116,11 +116,17 @@ def get_data():
     return df
 
 
-def preprocess_and_split_data(target_class, min_class_count):
+def preprocess_and_split_data(target_class, min_class_count, mode):
 
+    if mode == 'grade':
+        columns_file_path = f"./column_names/multiclass_for_{target_class}.json"
+        with open(columns_file_path, 'r') as f:
+            X_train = json.load(f)['columns']
+        return X_train
+    else:
+        columns_file_path = f"./column_names/passfail_for_{target_class}.json"
     
     # read the column name 
-    columns_file_path = f"./column_names/passfail_for_{target_class}.json"
     with open(columns_file_path, 'r') as f:
         X_train = json.load(f)  # Load column names from JSON
 
@@ -133,7 +139,7 @@ def process_request(request):
     # df = get_data()
 
     # Call the preprocessing function to get datasets
-    X_train = preprocess_and_split_data(request['option'], 20)
+    X_train = preprocess_and_split_data(request['option'], 20, mode = request['predictType'])
     # Feature names (from training data)
     feature_names = X_train
     
