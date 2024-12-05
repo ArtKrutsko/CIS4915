@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="input-container">
+        <h1>Prediction App</h1>
+        <select id="option-select">
+            <option value="CHM2210">CHM2210</option>
+            <option value="STA2023">STA2023</option>
+            <option value="MAC1147">MAC1147</option>
+            <option value="PSY2012">PSY2012</option>
+            <option value="BSC2010">BSC2010</option>
+            <option value="ECO2013">ECO2013</option>
+            <option value="ACG2021">ACG2021</option>
+            <option value="MAC2311">MAC2311</option>
+            <option value="ACG3103">ACG3103</option>
+
+            <option value="Other">Your Option</option>
+        </select>
+        <div id="custom-option-container">
+            <input 
+                type="text" 
+                id="custom-option" 
+                placeholder="Enter your option"
+                style="display: none;" 
+            >
+        </div>
+        <div id="score-input-container">
+            <div class="input-group">
+                <label for="highschool-gpa">Highschool GPA</label>
+                <input 
+                    type="text" 
+                    id="highschool-gpa" 
+                    placeholder="Enter GPA" 
+                    class="score-input"
+                >
+            </div>
+            <div class="input-group">
+                <label for="sat-score">SAT Score</label>
+                <input 
+                    type="text" 
+                    id="sat-score" 
+                    placeholder="Enter SAT Score" 
+                    class="score-input"
+                >
+            </div>
+        </div>
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Grade</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" placeholder="Enter Class"></td>
+                    <td><input type="text" placeholder="Enter Grade"></td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="toggle-container">
+            <label class="switch">
+                <input type="checkbox" id="prediction-toggle">
+                <span class="slider"></span>
+            </label>
+            <span id="toggle-label">Predict Pass/Fail</span>
+        </div>
+        <button id="predict-button">Make Prediction</button>
+        <div id="output"></div>
+    </div>
+    <div id="output-container" style="display: none;"></div>
+    <script src="script.js"></script>
+</body>
+</html>
